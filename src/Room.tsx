@@ -49,7 +49,7 @@ function Bubble({ message, mine }: { message: Message; mine: boolean }) {
       <Avatar size="sm">
         <AvatarFallback>{initials(message.nick)}</AvatarFallback>
       </Avatar>
-      <div className={`max-w-[75%] space-y-1 ${mine ? 'items-end text-right' : ''}`}>
+      <div className={`flex max-w-[75%] flex-col gap-1 ${mine ? 'items-end' : 'items-start'}`}>
         <p className="px-1 text-xs text-muted-foreground">
           {mine ? 'You' : message.nick} · {time(message.ts)}
         </p>
