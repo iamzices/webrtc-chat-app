@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict'
-import { CODE_ALPHABET, CODE_LENGTH, isCode, newCode, normalizeCode } from './src/room-code.ts'
+import {
+  CODE_ALPHABET,
+  CODE_LENGTH,
+  extractCode,
+  isCode,
+  newCode,
+  normalizeCode,
+} from './src/room-code.ts'
 
 for (let i = 0; i < 1000; i++) {
   const code = newCode()
@@ -19,5 +26,11 @@ assert.ok(!isCode('ABC23'))
 assert.ok(!isCode('ABC2345'))
 assert.ok(!isCode('abc234'))
 assert.ok(!isCode('ABC01O'))
+
+assert.equal(extractCode('ABC234'), 'ABC234')
+assert.equal(extractCode('abc-234'), 'ABC234')
+assert.equal(extractCode('https://example.com/app/?room=ABC234'), 'ABC234')
+assert.equal(extractCode('https://example.com/app/?room=abc-234&foo=bar'), 'ABC234')
+assert.equal(extractCode('https://example.com/app/'), '')
 
 console.log('ok')

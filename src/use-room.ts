@@ -57,6 +57,8 @@ const system = (text: string): Message => ({ kind: 'system', id: nanoid(), text,
 
 const clean = (value: unknown, max: number) => String(value ?? '').trim().slice(0, max)
 
+const randomNick = () => `user-${Math.floor(1000 + Math.random() * 9000)}`
+
 export function useRoom() {
   const [status, setStatus] = useState<Status>('idle')
   const [code, setCode] = useState('')
@@ -89,7 +91,7 @@ export function useRoom() {
     setSelfId('')
   }, [])
 
-  /** First failure wins: destroying the peer nulls the ref, so later events are ignored. */
+  /** Destroys the peer, so a second failure on the same connection is a no-op. */
   const fail = useCallback(
     (reason: string) => {
       if (!peerRef.current) return
@@ -132,7 +134,7 @@ export function useRoom() {
         const reason = !nick
           ? 'Invalid nickname.'
           : guestsRef.current.size + 1 >= MAX_PEERS
-            ? `This room is full (${MAX_PEERS} people).`
+            ? 'This room is full.'
             : ''
         if (reason) {
           conn.send({ t: 'reject', reason } satisfies Wire)
@@ -163,8 +165,6 @@ export function useRoom() {
     [publish, syncRoster],
   )
 
-  // Named function expression, not a `const`, so `attempt` can call itself before
-  // the outer assignment finishes (avoids a self-reference lint false-positive).
   const startHost = useCallback(
     function attempt(roomCode: string, retriesLeft: number) {
       const peer = new Peer(ID_PREFIX + roomCode, PEER_OPTIONS)
@@ -227,7 +227,7 @@ export function useRoom() {
 
   const enter = useCallback(
     (nick: string, roomCode: string | null) => {
-      nickRef.current = clean(nick, MAX_NICK)
+      nickRef.current = clean(nick, MAX_NICK) || randomNick()
       setError('')
       setStatus('connecting')
       if (roomCode) startGuest(roomCode)

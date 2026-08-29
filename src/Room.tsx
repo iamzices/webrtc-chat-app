@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { roomUrl } from '@/room-code'
 import { MAX_PEERS, MAX_TEXT, type Message, type User } from '@/use-room'
 
 const initials = (nick: string) => nick.slice(0, 2).toUpperCase()
@@ -26,8 +27,8 @@ function CopyCode({ code }: { code: string }) {
     <Button
       variant="outline"
       className="font-mono tracking-[0.2em]"
-      aria-label={`Room code ${code.split('').join(' ')}. Copy to clipboard.`}
-      onClick={() => navigator.clipboard.writeText(code).then(() => setCopied(true))}
+      aria-label={`Room code ${code.split('').join(' ')}. Copy invite link.`}
+      onClick={() => navigator.clipboard.writeText(roomUrl(code)).then(() => setCopied(true))}
     >
       {code}
       {copied ? <CheckIcon /> : <CopyIcon />}

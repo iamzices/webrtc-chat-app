@@ -14,3 +14,22 @@ export const normalizeCode = (input: string) =>
   input.toUpperCase().replace(NOISE_RE, '').slice(0, CODE_LENGTH)
 
 export const isCode = (input: string) => CODE_RE.test(input)
+
+export const ROOM_PARAM = 'room'
+
+/** Pasting a shared invite link into the code field should work same as pasting the bare code. */
+export const extractCode = (input: string) => {
+  const trimmed = input.trim()
+  try {
+    return normalizeCode(new URL(trimmed).searchParams.get(ROOM_PARAM) ?? '')
+  } catch {
+    return normalizeCode(trimmed)
+  }
+}
+
+export const roomUrl = (code: string) => {
+  const url = new URL(window.location.href)
+  url.search = ''
+  url.searchParams.set(ROOM_PARAM, code)
+  return url.toString()
+}
