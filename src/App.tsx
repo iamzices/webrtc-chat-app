@@ -42,68 +42,73 @@ export default function App() {
             <CardHeader>
               <CardTitle>WebRTC Chat App</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nick">Nickname</Label>
-                <Input
-                  id="nick"
-                  autoFocus
-                  value={nick}
-                  maxLength={MAX_NICK}
-                  onChange={(e) => setNick(e.target.value)}
-                />
-              </div>
-
-              {view === 'landing' ? (
-                <div className="flex gap-2">
-                  <Button className="flex-1" disabled={busy} onClick={() => room.create(nick)}>
-                    {busy && <Loader2Icon className="animate-spin" />}
-                    Create room
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => setView('join')}
-                  >
-                    Join room
-                  </Button>
-                </div>
-              ) : (
-                <form
-                  className="space-y-2"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    room.join(nick, code)
-                  }}
-                >
-                  <Label htmlFor="code">Room code</Label>
+            <CardContent>
+              {/* One form, so Enter in either field submits the current view's action. */}
+              <form
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  if (view === 'landing') room.create(nick)
+                  else room.join(nick, code)
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="nick">Nickname</Label>
                   <Input
-                    id="code"
+                    id="nick"
                     autoFocus
-                    value={code}
-                    className="text-center font-mono tracking-[0.3em]"
-                    placeholder={'·'.repeat(CODE_LENGTH)}
-                    onChange={(e) => setCode(extractCode(e.target.value))}
+                    value={nick}
+                    maxLength={MAX_NICK}
+                    onChange={(e) => setNick(e.target.value)}
                   />
+                </div>
+
+                {view === 'landing' ? (
                   <div className="flex gap-2">
+                    <Button type="submit" className="flex-1" disabled={busy}>
+                      {busy && <Loader2Icon className="animate-spin" />}
+                      Create room
+                    </Button>
                     <Button
                       type="button"
+                      className="flex-1"
                       variant="outline"
-                      size="icon"
                       disabled={busy}
-                      aria-label="Back"
-                      onClick={() => setView('landing')}
+                      onClick={() => setView('join')}
                     >
-                      <ArrowLeftIcon />
-                    </Button>
-                    <Button type="submit" className="flex-1" disabled={busy || !isCode(code)}>
-                      {busy && <Loader2Icon className="animate-spin" />}
                       Join room
                     </Button>
                   </div>
-                </form>
-              )}
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="code">Room code</Label>
+                    <Input
+                      id="code"
+                      autoFocus
+                      value={code}
+                      className="text-center font-mono tracking-[0.3em]"
+                      placeholder={'·'.repeat(CODE_LENGTH)}
+                      onChange={(e) => setCode(extractCode(e.target.value))}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        disabled={busy}
+                        aria-label="Back"
+                        onClick={() => setView('landing')}
+                      >
+                        <ArrowLeftIcon />
+                      </Button>
+                      <Button type="submit" className="flex-1" disabled={busy || !isCode(code)}>
+                        {busy && <Loader2Icon className="animate-spin" />}
+                        Join room
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </form>
             </CardContent>
           </Card>
         </div>
