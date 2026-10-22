@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ArrowLeftIcon, Loader2Icon } from 'lucide-react'
-import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -23,13 +22,6 @@ export default function App() {
   const [nick, setNick] = useState('')
   const [code, setCode] = useState(codeFromUrl)
   const [view, setView] = useState<View>(code ? 'join' : 'landing')
-
-  const { error, clearError } = room
-  useEffect(() => {
-    if (!error) return
-    toast.error(error)
-    clearError()
-  }, [error, clearError])
 
   const busy = room.status === 'connecting'
 

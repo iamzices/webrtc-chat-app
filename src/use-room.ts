@@ -64,7 +64,6 @@ export function useRoom() {
   const [code, setCode] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [users, setUsers] = useState<User[]>([])
-  const [error, setError] = useState('')
   const [selfId, setSelfId] = useState('')
 
   const peerRef = useRef<Peer | null>(null)
@@ -98,7 +97,7 @@ export function useRoom() {
     (reason: string) => {
       if (!peerRef.current) return
       reset()
-      setError(reason)
+      toast.error(reason)
     },
     [reset],
   )
@@ -241,15 +240,12 @@ export function useRoom() {
   const enter = useCallback(
     (nick: string, roomCode: string | null) => {
       nickRef.current = clean(nick, MAX_NICK) || randomNick()
-      setError('')
       setStatus('connecting')
       if (roomCode) startGuest(roomCode)
       else startHost(newCode(), 1)
     },
     [startGuest, startHost],
   )
-
-  const clearError = useCallback(() => setError(''), [])
 
   const send = useCallback(
     (text: string) => {
@@ -266,12 +262,10 @@ export function useRoom() {
     code,
     messages,
     users,
-    error,
     selfId,
     create: (nick: string) => enter(nick, null),
     join: (nick: string, roomCode: string) => enter(nick, roomCode),
     leave: reset,
     send,
-    clearError,
   }
 }
