@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckIcon, CopyIcon, LogOutIcon, SendHorizontalIcon } from 'lucide-react'
+import { toast } from 'sonner'
 import { Avatar, AvatarFallback, AvatarGroup } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,15 +25,26 @@ function CopyCode({ code }: { code: string }) {
   }, [copied])
 
   return (
-    <Button
-      variant="outline"
-      className="font-mono tracking-[0.2em]"
-      aria-label={`Room code ${code.split('').join(' ')}. Copy invite link.`}
-      onClick={() => navigator.clipboard.writeText(roomUrl(code)).then(() => setCopied(true))}
-    >
-      {code}
-      {copied ? <CheckIcon /> : <CopyIcon />}
-    </Button>
+    <>
+      <Button
+        variant="outline"
+        className="font-mono tracking-[0.2em]"
+        aria-label={`Room code ${code.split('').join(' ')}. Copy invite link.`}
+        onClick={() =>
+          navigator.clipboard
+            .writeText(roomUrl(code))
+            .then(() => setCopied(true))
+            .catch(() => toast.error('Could not copy the invite link.'))
+        }
+      >
+        {code}
+        {copied ? <CheckIcon /> : <CopyIcon />}
+      </Button>
+      {/* The button's label is fixed, so announce the copy separately. */}
+      <span className="sr-only" aria-live="polite">
+        {copied ? 'Invite link copied' : ''}
+      </span>
+    </>
   )
 }
 
