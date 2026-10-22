@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
 import { roomUrl } from '@/room-code'
 import { MAX_PEERS, MAX_TEXT, type Message, type User } from '@/use-room'
 
@@ -57,18 +58,19 @@ function Bubble({ message, mine }: { message: Message; mine: boolean }) {
     )
 
   return (
-    <div className={`flex items-end gap-2 ${mine ? 'flex-row-reverse' : ''}`}>
+    <div className={cn('flex items-end gap-2', mine && 'flex-row-reverse')}>
       <Avatar size="sm">
         <AvatarFallback>{initials(message.nick)}</AvatarFallback>
       </Avatar>
-      <div className={`flex max-w-[75%] flex-col gap-1 ${mine ? 'items-end' : 'items-start'}`}>
+      <div className={cn('flex max-w-[75%] flex-col gap-1', mine ? 'items-end' : 'items-start')}>
         <p className="px-1 text-xs text-muted-foreground">
           {mine ? 'You' : message.nick} · {time(message.ts)}
         </p>
         <p
-          className={`rounded-lg px-3 py-2 text-sm wrap-anywhere ${
-            mine ? 'bg-primary text-primary-foreground' : 'bg-muted'
-          }`}
+          className={cn(
+            'rounded-lg px-3 py-2 text-sm wrap-anywhere',
+            mine ? 'bg-primary text-primary-foreground' : 'bg-muted',
+          )}
         >
           {message.text}
         </p>
