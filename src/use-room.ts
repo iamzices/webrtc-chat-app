@@ -215,6 +215,8 @@ export function useRoom() {
           else if (w?.t === 'reject') fail(w.reason)
         })
         conn.on('close', () => fail('The host ended the room.'))
+        // A connection that never opens errors without ever emitting 'close'.
+        conn.on('error', () => fail('Could not reach the host.'))
       })
       peer.on('error', (err) => fail(PEER_ERRORS[err.type] ?? 'Connection failed.'))
     },
