@@ -79,8 +79,10 @@ export function useRoom() {
   }, [])
 
   const reset = useCallback(() => {
-    peerRef.current?.destroy()
+    // Detach first: destroy() fires close handlers synchronously, which must see the room as gone.
+    const peer = peerRef.current
     peerRef.current = null
+    peer?.destroy()
     hostConnRef.current = null
     guestsRef.current.clear()
     messagesRef.current = []
