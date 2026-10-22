@@ -8,7 +8,7 @@ export const MAX_NICK = 20
 export const MAX_TEXT = 2000
 
 /** Namespaces our room codes inside the shared public broker. */
-const ID_PREFIX = 'webrtc-chat-'
+const ID_PREFIX = 'webrtc-chat-app-'
 
 const env = import.meta.env
 const PEER_OPTIONS: PeerJSOption = env.VITE_PEER_HOST
