@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { nanoid } from 'nanoid'
 import Peer, { type DataConnection, type PeerJSOption } from 'peerjs'
+import { toast } from 'sonner'
 import { newCode } from '@/room-code'
 
 export const MAX_PEERS = 8
@@ -171,7 +172,10 @@ export function useRoom() {
     function attempt(roomCode: string, retriesLeft: number) {
       const peer = new Peer(ID_PREFIX + roomCode, PEER_OPTIONS)
       peerRef.current = peer
+      // Once the room is up, losing the signalling server only stops new joins; guests stay connected.
+      let live = false
       peer.on('open', (id) => {
+        live = true
         setSelfId(id)
         setCode(roomCode)
         setStatus('open')
@@ -180,6 +184,10 @@ export function useRoom() {
       peer.on('connection', acceptGuest)
       peer.on('error', (err) => {
         if (peerRef.current !== peer) return
+        if (live) {
+          toast.error('Lost connection to the signalling server. New guests cannot join.')
+          return
+        }
         if (err.type === 'unavailable-id' && retriesLeft > 0) {
           peer.destroy()
           attempt(newCode(), retriesLeft - 1)
@@ -197,6 +205,8 @@ export function useRoom() {
     (roomCode: string) => {
       const peer = new Peer(PEER_OPTIONS)
       peerRef.current = peer
+      // Once joined, the host connection is all that matters; its 'close' handles the room ending.
+      let live = false
       peer.on('open', (id) => {
         setSelfId(id)
         const conn = peer.connect(ID_PREFIX + roomCode, {
@@ -205,6 +215,7 @@ export function useRoom() {
         })
         hostConnRef.current = conn
         conn.on('open', () => {
+          live = true
           setCode(roomCode)
           setStatus('open')
         })
@@ -218,7 +229,9 @@ export function useRoom() {
         // A connection that never opens errors without ever emitting 'close'.
         conn.on('error', () => fail('Could not reach the host.'))
       })
-      peer.on('error', (err) => fail(PEER_ERRORS[err.type] ?? 'Connection failed.'))
+      peer.on('error', (err) => {
+        if (!live) fail(PEER_ERRORS[err.type] ?? 'Connection failed.')
+      })
     },
     [append, fail],
   )
