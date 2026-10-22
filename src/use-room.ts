@@ -14,8 +14,9 @@ const env = import.meta.env
 const PEER_OPTIONS: PeerJSOption = env.VITE_PEER_HOST
   ? {
       host: env.VITE_PEER_HOST,
-      port: Number(env.VITE_PEER_PORT ?? 443),
-      path: env.VITE_PEER_PATH ?? '/',
+      // `||` not `??`: unset CI variables arrive as empty strings.
+      port: Number(env.VITE_PEER_PORT || 443),
+      path: env.VITE_PEER_PATH || '/',
     }
   : {}
 
