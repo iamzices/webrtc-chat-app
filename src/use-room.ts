@@ -38,7 +38,6 @@ export type Message =
 type Wire =
   | { t: 'chat'; text: string }
   | { t: 'msg'; m: Message }
-  | { t: 'history'; messages: Message[] }
   | { t: 'roster'; users: User[] }
   | { t: 'reject'; reason: string }
 
@@ -144,7 +143,8 @@ export function useRoom() {
           return
         }
         guestsRef.current.set(conn.peer, { conn, nick })
-        conn.send({ t: 'history', messages: messagesRef.current } satisfies Wire)
+        // One frame per message: PeerJS rejects JSON frames over ~16 KB, which a whole history soon exceeds.
+        for (const m of messagesRef.current) conn.send({ t: 'msg', m } satisfies Wire)
         syncRoster()
         publish(system(`${nick} joined`))
       })
@@ -213,10 +213,6 @@ export function useRoom() {
           if (w?.t === 'msg') append(w.m)
           else if (w?.t === 'roster') setUsers(w.users)
           else if (w?.t === 'reject') fail(w.reason)
-          else if (w?.t === 'history') {
-            messagesRef.current = w.messages
-            setMessages(w.messages)
-          }
         })
         conn.on('close', () => fail('The host ended the room.'))
       })
