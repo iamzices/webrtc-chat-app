@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { nanoid } from 'nanoid'
 import Peer, { type DataConnection, type PeerJSOption } from 'peerjs'
 import { toast } from 'sonner'
 import { newCode } from '@/room-code'
@@ -46,14 +45,14 @@ type Status = 'idle' | 'connecting' | 'open'
 
 const chat = (from: string, nick: string, text: string): Message => ({
   kind: 'chat',
-  id: nanoid(),
+  id: crypto.randomUUID(),
   from,
   nick,
   text,
   ts: Date.now(),
 })
 
-const system = (text: string): Message => ({ kind: 'system', id: nanoid(), text, ts: Date.now() })
+const system = (text: string): Message => ({ kind: 'system', id: crypto.randomUUID(), text, ts: Date.now() })
 
 const clean = (value: unknown, max: number) => String(value ?? '').trim().slice(0, max)
 

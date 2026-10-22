@@ -1,5 +1,3 @@
-import { customAlphabet } from 'nanoid'
-
 /** Excludes I, O, 0 and 1 so codes survive being read aloud or retyped. */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 export const CODE_LENGTH = 6
@@ -7,7 +5,9 @@ export const CODE_LENGTH = 6
 const CODE_RE = new RegExp(`^[${CODE_ALPHABET}]{${CODE_LENGTH}}$`)
 const NOISE_RE = new RegExp(`[^${CODE_ALPHABET}]`, 'g')
 
-export const newCode = customAlphabet(CODE_ALPHABET, CODE_LENGTH)
+// 32 characters, so masking a random byte to 5 bits picks each one with equal odds.
+export const newCode = () =>
+  Array.from(crypto.getRandomValues(new Uint8Array(CODE_LENGTH)), (b) => CODE_ALPHABET[b & 31]).join('')
 
 /** Makes pasted or hand-typed input comparable: uppercase, drop noise, cap length. */
 export const normalizeCode = (input: string) =>

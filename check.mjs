@@ -8,6 +8,8 @@ import {
   normalizeCode,
 } from './src/room-code.ts'
 
+assert.equal(CODE_ALPHABET.length, 32, 'newCode masks bytes to 5 bits')
+
 for (let i = 0; i < 1000; i++) {
   const code = newCode()
   assert.equal(code.length, CODE_LENGTH)
