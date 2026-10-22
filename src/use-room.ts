@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { nanoid } from 'nanoid'
 import Peer, { type DataConnection, type PeerJSOption } from 'peerjs'
 import { toast } from 'sonner'
@@ -72,12 +72,14 @@ export function useRoom() {
   const nickRef = useRef('')
   const messagesRef = useRef<Message[]>([])
 
-  const append = useCallback((m: Message) => {
+  // Plain functions on purpose: all mutable state lives in refs and stable setters, so the
+  // closures PeerJS handlers capture never go stale.
+  function append(m: Message) {
     messagesRef.current = [...messagesRef.current, m]
     setMessages(messagesRef.current)
-  }, [])
+  }
 
-  const reset = useCallback(() => {
+  function reset() {
     // Detach first: destroy() fires close handlers synchronously, which must see the room as gone.
     const peer = peerRef.current
     peerRef.current = null
@@ -90,172 +92,151 @@ export function useRoom() {
     setMessages([])
     setUsers([])
     setSelfId('')
-  }, [])
+  }
 
   /** Destroys the peer, so a second failure on the same connection is a no-op. */
-  const fail = useCallback(
-    (reason: string) => {
-      if (!peerRef.current) return
-      reset()
-      toast.error(reason)
-    },
-    [reset],
-  )
+  function fail(reason: string) {
+    if (!peerRef.current) return
+    reset()
+    toast.error(reason)
+  }
 
-  useEffect(() => () => void peerRef.current?.destroy(), [])
+  useEffect(() => reset, [])
 
   // --- Host ---
 
-  const broadcast = useCallback((w: Wire) => {
+  function broadcast(w: Wire) {
     for (const { conn } of guestsRef.current.values()) if (conn.open) conn.send(w)
-  }, [])
+  }
 
-  const publish = useCallback(
-    (m: Message) => {
-      append(m)
-      broadcast({ t: 'msg', m })
-    },
-    [append, broadcast],
-  )
+  function publish(m: Message) {
+    append(m)
+    broadcast({ t: 'msg', m })
+  }
 
-  const syncRoster = useCallback(() => {
+  function syncRoster() {
     const list: User[] = [
       { id: peerRef.current?.id ?? '', nick: nickRef.current },
       ...[...guestsRef.current].map(([id, g]) => ({ id, nick: g.nick })),
     ]
     setUsers(list)
     broadcast({ t: 'roster', users: list })
-  }, [broadcast])
+  }
 
-  const acceptGuest = useCallback(
-    (conn: DataConnection) => {
-      const nick = clean((conn.metadata as { nick?: unknown } | null)?.nick, MAX_NICK)
+  function acceptGuest(conn: DataConnection) {
+    const nick = clean((conn.metadata as { nick?: unknown } | null)?.nick, MAX_NICK)
 
-      conn.on('open', () => {
-        const reason = !nick
-          ? 'Invalid nickname.'
-          : guestsRef.current.size + 1 >= MAX_PEERS
-            ? 'This room is full.'
-            : ''
-        if (reason) {
-          conn.send({ t: 'reject', reason } satisfies Wire)
-          conn.close({ flush: true })
-          return
-        }
-        guestsRef.current.set(conn.peer, { conn, nick })
-        // One frame per message: PeerJS rejects JSON frames over ~16 KB, which a whole history soon exceeds.
-        for (const m of messagesRef.current) conn.send({ t: 'msg', m } satisfies Wire)
-        syncRoster()
-        publish(system(`${nick} joined`))
-      })
+    conn.on('open', () => {
+      const reason = !nick
+        ? 'Invalid nickname.'
+        : guestsRef.current.size + 1 >= MAX_PEERS
+          ? 'This room is full.'
+          : ''
+      if (reason) {
+        conn.send({ t: 'reject', reason } satisfies Wire)
+        conn.close({ flush: true })
+        return
+      }
+      guestsRef.current.set(conn.peer, { conn, nick })
+      // One frame per message: PeerJS rejects JSON frames over ~16 KB, which a whole history soon exceeds.
+      for (const m of messagesRef.current) conn.send({ t: 'msg', m } satisfies Wire)
+      syncRoster()
+      publish(system(`${nick} joined`))
+    })
 
-      conn.on('data', (data) => {
-        const w = data as Wire
-        // Nickname comes from the roster, never the message, so guests cannot spoof each other.
-        const sender = guestsRef.current.get(conn.peer)
-        if (w?.t !== 'chat' || !sender) return
-        const text = clean(w.text, MAX_TEXT)
-        if (text) publish(chat(conn.peer, sender.nick, text))
-      })
+    conn.on('data', (data) => {
+      const w = data as Wire
+      // Nickname comes from the roster, never the message, so guests cannot spoof each other.
+      const sender = guestsRef.current.get(conn.peer)
+      if (w?.t !== 'chat' || !sender) return
+      const text = clean(w.text, MAX_TEXT)
+      if (text) publish(chat(conn.peer, sender.nick, text))
+    })
 
-      conn.on('close', () => {
-        if (!guestsRef.current.delete(conn.peer)) return
-        syncRoster()
-        publish(system(`${nick} left`))
-      })
-    },
-    [publish, syncRoster],
-  )
+    conn.on('close', () => {
+      if (!guestsRef.current.delete(conn.peer)) return
+      syncRoster()
+      publish(system(`${nick} left`))
+    })
+  }
 
-  const startHost = useCallback(
-    function attempt(roomCode: string, retriesLeft: number) {
-      const peer = new Peer(ID_PREFIX + roomCode, PEER_OPTIONS)
-      peerRef.current = peer
-      // Once the room is up, losing the signalling server only stops new joins; guests stay connected.
-      let live = false
-      peer.on('open', (id) => {
-        live = true
-        setSelfId(id)
-        setCode(roomCode)
-        setStatus('open')
-        syncRoster()
-      })
-      peer.on('connection', acceptGuest)
-      peer.on('error', (err) => {
-        if (peerRef.current !== peer) return
-        if (live) {
-          toast.error('Lost connection to the signalling server. New guests cannot join.')
-          return
-        }
-        if (err.type === 'unavailable-id' && retriesLeft > 0) {
-          peer.destroy()
-          attempt(newCode(), retriesLeft - 1)
-          return
-        }
-        fail(PEER_ERRORS[err.type] ?? 'Connection failed.')
-      })
-    },
-    [acceptGuest, fail, syncRoster],
-  )
+  function startHost(roomCode: string, retriesLeft: number) {
+    const peer = new Peer(ID_PREFIX + roomCode, PEER_OPTIONS)
+    peerRef.current = peer
+    // Once the room is up, losing the signalling server only stops new joins; guests stay connected.
+    let live = false
+    peer.on('open', (id) => {
+      live = true
+      setSelfId(id)
+      setCode(roomCode)
+      setStatus('open')
+      syncRoster()
+    })
+    peer.on('connection', acceptGuest)
+    peer.on('error', (err) => {
+      if (peerRef.current !== peer) return
+      if (live) {
+        toast.error('Lost connection to the signalling server. New guests cannot join.')
+        return
+      }
+      if (err.type === 'unavailable-id' && retriesLeft > 0) {
+        peer.destroy()
+        startHost(newCode(), retriesLeft - 1)
+        return
+      }
+      fail(PEER_ERRORS[err.type] ?? 'Connection failed.')
+    })
+  }
 
   // --- Guest ---
 
-  const startGuest = useCallback(
-    (roomCode: string) => {
-      const peer = new Peer(PEER_OPTIONS)
-      peerRef.current = peer
-      // Once joined, the host connection is all that matters; its 'close' handles the room ending.
-      let live = false
-      peer.on('open', (id) => {
-        setSelfId(id)
-        const conn = peer.connect(ID_PREFIX + roomCode, {
-          metadata: { nick: nickRef.current },
-          serialization: 'json',
-        })
-        hostConnRef.current = conn
-        conn.on('open', () => {
-          live = true
-          setCode(roomCode)
-          setStatus('open')
-        })
-        conn.on('data', (data) => {
-          const w = data as Wire
-          if (w?.t === 'msg') append(w.m)
-          else if (w?.t === 'roster') setUsers(w.users)
-          else if (w?.t === 'reject') fail(w.reason)
-        })
-        conn.on('close', () => fail('The host ended the room.'))
-        // A connection that never opens errors without ever emitting 'close'.
-        conn.on('error', () => fail('Could not reach the host.'))
+  function startGuest(roomCode: string) {
+    const peer = new Peer(PEER_OPTIONS)
+    peerRef.current = peer
+    // Once joined, the host connection is all that matters; its 'close' handles the room ending.
+    let live = false
+    peer.on('open', (id) => {
+      setSelfId(id)
+      const conn = peer.connect(ID_PREFIX + roomCode, {
+        metadata: { nick: nickRef.current },
+        serialization: 'json',
       })
-      peer.on('error', (err) => {
-        if (!live) fail(PEER_ERRORS[err.type] ?? 'Connection failed.')
+      hostConnRef.current = conn
+      conn.on('open', () => {
+        live = true
+        setCode(roomCode)
+        setStatus('open')
       })
-    },
-    [append, fail],
-  )
+      conn.on('data', (data) => {
+        const w = data as Wire
+        if (w?.t === 'msg') append(w.m)
+        else if (w?.t === 'roster') setUsers(w.users)
+        else if (w?.t === 'reject') fail(w.reason)
+      })
+      conn.on('close', () => fail('The host ended the room.'))
+      // A connection that never opens errors without ever emitting 'close'.
+      conn.on('error', () => fail('Could not reach the host.'))
+    })
+    peer.on('error', (err) => {
+      if (!live) fail(PEER_ERRORS[err.type] ?? 'Connection failed.')
+    })
+  }
 
   // --- Public API ---
 
-  const enter = useCallback(
-    (nick: string, roomCode: string | null) => {
-      nickRef.current = clean(nick, MAX_NICK) || randomNick()
-      setStatus('connecting')
-      if (roomCode) startGuest(roomCode)
-      else startHost(newCode(), 1)
-    },
-    [startGuest, startHost],
-  )
+  function enter(nick: string, roomCode?: string) {
+    nickRef.current = clean(nick, MAX_NICK) || randomNick()
+    setStatus('connecting')
+    if (roomCode) startGuest(roomCode)
+    else startHost(newCode(), 1)
+  }
 
-  const send = useCallback(
-    (text: string) => {
-      const body = clean(text, MAX_TEXT)
-      if (!body || !peerRef.current) return
-      if (hostConnRef.current) hostConnRef.current.send({ t: 'chat', text: body } satisfies Wire)
-      else publish(chat(peerRef.current.id, nickRef.current, body))
-    },
-    [publish],
-  )
+  function send(text: string) {
+    const body = clean(text, MAX_TEXT)
+    if (!body || !peerRef.current) return
+    if (hostConnRef.current) hostConnRef.current.send({ t: 'chat', text: body } satisfies Wire)
+    else publish(chat(peerRef.current.id, nickRef.current, body))
+  }
 
   return {
     status,
@@ -263,8 +244,8 @@ export function useRoom() {
     messages,
     users,
     selfId,
-    create: (nick: string) => enter(nick, null),
-    join: (nick: string, roomCode: string) => enter(nick, roomCode),
+    create: (nick: string) => enter(nick),
+    join: enter,
     leave: reset,
     send,
   }
