@@ -11,11 +11,8 @@ import { Room } from '@/Room'
 
 type View = 'landing' | 'join'
 
-function codeFromUrl() {
-  const code = extractCode(new URLSearchParams(window.location.search).get(ROOM_PARAM) ?? '')
-  if (code) window.history.replaceState(null, '', window.location.pathname)
-  return code
-}
+const codeFromUrl = () =>
+  extractCode(new URLSearchParams(window.location.search).get(ROOM_PARAM) ?? '')
 
 export default function App() {
   const room = useRoom()
