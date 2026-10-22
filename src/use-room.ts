@@ -94,9 +94,9 @@ export function useRoom() {
     setSelfId('')
   }
 
-  /** Destroys the peer, so a second failure on the same connection is a no-op. */
-  function fail(reason: string) {
-    if (!peerRef.current) return
+  /** Ignores peers that are no longer current, so late or repeated failures are no-ops. */
+  function fail(peer: Peer, reason: string) {
+    if (peerRef.current !== peer) return
     reset()
     toast.error(reason)
   }
@@ -184,7 +184,7 @@ export function useRoom() {
         startHost(newCode(), retriesLeft - 1)
         return
       }
-      fail(PEER_ERRORS[err.type] ?? 'Connection failed.')
+      fail(peer, PEER_ERRORS[err.type] ?? 'Connection failed.')
     })
   }
 
@@ -211,14 +211,14 @@ export function useRoom() {
         const w = data as Wire
         if (w?.t === 'msg') append(w.m)
         else if (w?.t === 'roster') setUsers(w.users)
-        else if (w?.t === 'reject') fail(w.reason)
+        else if (w?.t === 'reject') fail(peer, w.reason)
       })
-      conn.on('close', () => fail('The host ended the room.'))
+      conn.on('close', () => fail(peer, 'The host ended the room.'))
       // A connection that never opens errors without ever emitting 'close'.
-      conn.on('error', () => fail('Could not reach the host.'))
+      conn.on('error', () => fail(peer, 'Could not reach the host.'))
     })
     peer.on('error', (err) => {
-      if (!live) fail(PEER_ERRORS[err.type] ?? 'Connection failed.')
+      if (!live) fail(peer, PEER_ERRORS[err.type] ?? 'Connection failed.')
     })
   }
 
