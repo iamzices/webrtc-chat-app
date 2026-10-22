@@ -37,10 +37,10 @@ export type Message =
 
 /** Host relays everything, so guests only ever send `chat`. */
 type Wire =
-  | { t: 'chat'; text: string }
-  | { t: 'msg'; m: Message }
-  | { t: 'roster'; users: User[] }
-  | { t: 'reject'; reason: string }
+  | { kind: 'chat'; text: string }
+  | { kind: 'msg'; m: Message }
+  | { kind: 'roster'; users: User[] }
+  | { kind: 'reject'; reason: string }
 
 type Status = 'idle' | 'connecting' | 'open'
 
@@ -111,7 +111,7 @@ export function useRoom() {
 
   function publish(m: Message) {
     append(m)
-    broadcast({ t: 'msg', m })
+    broadcast({ kind: 'msg', m })
   }
 
   function syncRoster() {
@@ -120,7 +120,7 @@ export function useRoom() {
       ...[...guestsRef.current].map(([id, g]) => ({ id, nick: g.nick })),
     ]
     setUsers(list)
-    broadcast({ t: 'roster', users: list })
+    broadcast({ kind: 'roster', users: list })
   }
 
   function acceptGuest(conn: DataConnection) {
@@ -133,13 +133,13 @@ export function useRoom() {
           ? 'This room is full.'
           : ''
       if (reason) {
-        conn.send({ t: 'reject', reason } satisfies Wire)
+        conn.send({ kind: 'reject', reason } satisfies Wire)
         conn.close({ flush: true })
         return
       }
       guestsRef.current.set(conn.peer, { conn, nick })
       // One frame per message: PeerJS rejects JSON frames over ~16 KB, which a whole history soon exceeds.
-      for (const m of messagesRef.current) conn.send({ t: 'msg', m } satisfies Wire)
+      for (const m of messagesRef.current) conn.send({ kind: 'msg', m } satisfies Wire)
       syncRoster()
       publish(system(`${nick} joined`))
     })
@@ -148,7 +148,7 @@ export function useRoom() {
       const w = data as Wire
       // Nickname comes from the roster, never the message, so guests cannot spoof each other.
       const sender = guestsRef.current.get(conn.peer)
-      if (w?.t !== 'chat' || !sender) return
+      if (w?.kind !== 'chat' || !sender) return
       const text = clean(w.text, MAX_TEXT)
       if (text) publish(chat(conn.peer, sender.nick, text))
     })
@@ -209,9 +209,9 @@ export function useRoom() {
       })
       conn.on('data', (data) => {
         const w = data as Wire
-        if (w?.t === 'msg') append(w.m)
-        else if (w?.t === 'roster') setUsers(w.users)
-        else if (w?.t === 'reject') fail(peer, w.reason)
+        if (w?.kind === 'msg') append(w.m)
+        else if (w?.kind === 'roster') setUsers(w.users)
+        else if (w?.kind === 'reject') fail(peer, w.reason)
       })
       conn.on('close', () => fail(peer, 'The host ended the room.'))
       // A connection that never opens errors without ever emitting 'close'.
@@ -234,7 +234,7 @@ export function useRoom() {
   function send(text: string) {
     const body = clean(text, MAX_TEXT)
     if (!body || !peerRef.current) return
-    if (hostConnRef.current) hostConnRef.current.send({ t: 'chat', text: body } satisfies Wire)
+    if (hostConnRef.current) hostConnRef.current.send({ kind: 'chat', text: body } satisfies Wire)
     else publish(chat(peerRef.current.id, nickRef.current, body))
   }
 
