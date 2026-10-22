@@ -96,10 +96,15 @@ export function Room({
 }) {
   const [draft, setDraft] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  // Follow new messages only while the reader is at the bottom, or when they sent it.
+  const atBottomRef = useRef(true)
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const last = messages.at(-1)
+    const mine = last?.kind === 'chat' && last.from === selfId
+    // Instant, not smooth: a smooth scroll's in-between positions would read as scrolled up.
+    if (atBottomRef.current || mine) bottomRef.current?.scrollIntoView()
+  }, [messages, selfId])
 
   return (
     <div className="mx-auto flex h-dvh max-w-2xl flex-col">
@@ -121,7 +126,13 @@ export function Room({
       </header>
       <Separator />
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea
+        className="min-h-0 flex-1"
+        onScrollCapture={(e) => {
+          const el = e.target as HTMLElement
+          atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 64
+        }}
+      >
         <div className="space-y-4 p-4">
           {messages.map((m) => (
             <Bubble key={m.id} message={m} mine={m.kind === 'chat' && m.from === selfId} />
