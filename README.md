@@ -1,11 +1,12 @@
 # WebRTC Chat App
 
-WebRTC Chat App is a serverless, peer-to-peer group chat built with React, TypeScript, and PeerJS.
+WebRTC Chat App is a peer-to-peer chat built with React, TypeScript, and PeerJS.
 
 ## Features
 
+- Group chats
 - Shareable room links
-- No accounts, backend, or stored messages
+- No chat history saved
 
 ## Configuration
 
